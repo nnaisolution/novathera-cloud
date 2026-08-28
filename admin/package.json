@@ -49,6 +49,7 @@
     "@types/react-dom": "^19",
     "dotenv": "^17.4.2",
     "eslint": "^9",
+    "@netlify/plugin-nextjs": "^5.15.13",
     "eslint-config-next": "16.2.7",
     "shadcn": "^4.10.0",
     "tailwindcss": "^4",

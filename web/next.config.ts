@@ -1,4 +1,7 @@
+import path from "node:path";
 import type { NextConfig } from "next";
+
+const appDir = path.join(__dirname);
 
 if (
   process.env.NODE_ENV === "production" &&
@@ -35,6 +38,10 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 const nextConfig: NextConfig = {
+  // Pin tracing to this app. A lockfile in the parent home/repo directory
+  // otherwise makes Next treat that folder as the workspace root.
+  outputFileTracingRoot: appDir,
+  turbopack: { root: appDir },
   // Standalone is for Docker/Cloud Run. Netlify's Next.js runtime cannot use it.
   ...(process.env.NETLIFY ? {} : { output: "standalone" as const }),
   poweredByHeader: false,
