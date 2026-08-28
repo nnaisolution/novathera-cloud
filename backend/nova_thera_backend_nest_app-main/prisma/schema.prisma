@@ -1,0 +1,820 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id               String    @id
+  name             String
+  email            String
+  emailVerified    Boolean   @default(false)
+  image            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  role             String?
+  banned           Boolean?  @default(false)
+  banReason        String?
+  banExpires       DateTime?
+  phoneNumber      String?
+  marketingOptIn   Boolean   @default(false)
+  stripeCustomerId String?
+  firstName        String?
+  lastName         String?
+  dateOfBirth      DateTime?
+  addressLine1     String?
+  addressLine2     String?
+  city             String?
+  province         String?
+  postalCode       String?
+  country          String?
+  /// Identity of the same person in the patient API (Next.js, port 3000),
+  /// established by the mobile session exchange.
+  patientId        String?
+  sessions         Session[]
+  accounts         Account[]
+  customerBookings Booking[]      @relation("CustomerBookings")
+  cart             Cart?
+  orders           Order[]
+  familyMembers    FamilyMember[]
+  documents        Document[]
+  devicePushTokens DevicePushToken[]
+
+  @@unique([email])
+  @@unique([patientId])
+  @@unique([phoneNumber])
+  @@map("user")
+}
+
+enum DocumentCategory {
+  ASSESSMENT
+  LAB
+  PROTOCOL
+  CONSENT
+  GUIDE
+  OTHER
+}
+
+model Document {
+  id                   String           @id @default(cuid())
+  customerUserId       String
+  customer             User             @relation(fields: [customerUserId], references: [id], onDelete: Cascade)
+  title                String
+  category             DocumentCategory @default(OTHER)
+  fileUrl              String
+  fileSizeBytes        Int?
+  uploadedByEmployeeId String?
+  uploadedByEmployee   Employee?        @relation(fields: [uploadedByEmployeeId], references: [id], onDelete: SetNull)
+  createdAt            DateTime         @default(now())
+
+  @@index([customerUserId])
+  @@map("document")
+}
+
+/// Hashed APNs/FCM/Expo push token for a platform user. The plaintext token is
+/// never stored; sending requires credentials plus a live token the client no
+/// longer uploads.
+model DevicePushToken {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform      String
+  tokenHash     String    @unique
+  /// Live Expo push token used only when EXPO_ACCESS_TOKEN is set. Null for
+  /// hash-only registrations from older clients.
+  expoPushToken String?
+  lastSeenAt    DateTime  @default(now())
+  revokedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("device_push_token")
+}
+
+model FamilyMember {
+  id           String    @id @default(cuid())
+  ownerUserId  String
+  owner        User      @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  name         String
+  relationship String
+  photoUrl     String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+  bookings     Booking[]
+
+  @@index([ownerUserId])
+  @@map("family_member")
+}
+
+model Session {
+  id             String   @id
+  expiresAt      DateTime
+  token          String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  ipAddress      String?
+  userAgent      String?
+  userId         String
+  impersonatedBy String?
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+enum LocationStatus {
+  OPEN
+  COMING_SOON
+  CLOSED
+}
+
+model Location {
+  id               String            @id @default(cuid())
+  name             String
+  slug             String            @unique
+  addressLine1     String
+  addressLine2     String?
+  city             String
+  province         String
+  postalCode       String
+  country          String            @default("CA")
+  phone            String?
+  email            String?
+  googleMapsUrl    String?
+  timezone         String            @default("America/Edmonton")
+  operatingHours   Json
+  status           LocationStatus    @default(OPEN)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  deletedAt        DateTime?
+  employees        Employee[]
+  serviceLocations ServiceLocation[]
+  bookings         Booking[]
+
+  @@index([status])
+  @@map("location")
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Employee {
+  id                    String                  @id @default(cuid())
+  employeeCode          String                  @unique
+  userId                String                  @unique
+  firstName             String
+  lastName              String
+  photoUrl              String?
+  dateOfBirth           DateTime?
+  gender                Gender?
+  personalPhone         String?
+  personalEmail         String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  jobTitle              String
+  department            String
+  employmentType        EmploymentType
+  startDate             DateTime
+  locationId            String?
+  location              Location?               @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  schedule              Json
+  bufferMinutes         Int                     @default(0)
+  maxDailyAppointments  Int?
+  status                EmployeeStatus          @default(ACTIVE)
+  certifications        EmployeeCertification[]
+  serviceAssignments    ServiceEmployee[]
+  bookings              Booking[]
+  uploadedDocuments     Document[]
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  deletedAt             DateTime?
+
+  @@index([locationId])
+  @@index([status])
+  @@map("employee")
+}
+
+model EmployeeCertification {
+  id            String    @id @default(cuid())
+  employeeId    String
+  employee      Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  name          String
+  qualification String?
+  licenseNumber String?
+  expiresAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([employeeId])
+  @@index([expiresAt])
+  @@map("employee_certification")
+}
+
+enum BookingStatus {
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum BookingPaymentStatus {
+  NONE
+  PENDING
+  PAID
+  REFUNDED
+}
+
+enum ServiceStatus {
+  ACTIVE
+  DRAFT
+  ARCHIVED
+}
+
+enum CategoryStatus {
+  ACTIVE
+  HIDDEN
+}
+
+model ServiceCategory {
+  id           String         @id @default(cuid())
+  name         String         @unique
+  iconUrl      String?
+  displayOrder Int            @default(0)
+  status       CategoryStatus @default(ACTIVE)
+  services     Service[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  deletedAt    DateTime?
+
+  @@index([displayOrder])
+  @@map("service_category")
+}
+
+model Service {
+  id                       String            @id @default(cuid())
+  name                     String
+  slug                     String            @unique
+  categoryId               String
+  category                 ServiceCategory   @relation(fields: [categoryId], references: [id])
+  shortDescription         String?
+  detailedDescription      String?
+  imageUrl                 String?
+  tags                     String[]
+  status                   ServiceStatus     @default(DRAFT)
+  durationMinutes          Int
+  bufferAfterMinutes       Int               @default(0)
+  minAdvanceBookingMinutes Int               @default(0)
+  maxAdvanceBookingDays    Int               @default(60)
+  requiresConsultation     Boolean           @default(false)
+  standardPriceCents       Int
+  memberPriceCents         Int?
+  currency                 String            @default("CAD")
+  taxApplicable            Boolean           @default(true)
+  depositRequired          Boolean           @default(false)
+  depositAmountCents       Int?
+  anyAssignedStaff         Boolean           @default(true)
+  clientCanChooseStaff     Boolean           @default(true)
+  stripeProductId          String?
+  stripePriceId            String?
+  locations                ServiceLocation[]
+  staff                    ServiceEmployee[]
+  packages                 Package[]
+  bookings                 Booking[]
+  createdAt                DateTime          @default(now())
+  updatedAt                DateTime          @updatedAt
+  deletedAt                DateTime?
+
+  @@index([categoryId])
+  @@index([status])
+  @@map("service")
+}
+
+model ServiceLocation {
+  id                      String   @id @default(cuid())
+  serviceId               String
+  service                 Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  locationId              String
+  location                Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  isAvailable             Boolean  @default(true)
+  priceOverrideCents      Int?
+  durationOverrideMinutes Int?
+  roomOrEquipment         String?
+
+  @@unique([serviceId, locationId])
+  @@map("service_location")
+}
+
+model ServiceEmployee {
+  id         String   @id @default(cuid())
+  serviceId  String
+  service    Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceId, employeeId])
+  @@map("service_employee")
+}
+
+model Package {
+  id           String        @id @default(cuid())
+  name         String
+  serviceId    String
+  service      Service       @relation(fields: [serviceId], references: [id])
+  sessionCount Int
+  priceCents   Int
+  validityDays Int?
+  locationIds  String[]
+  status       ServiceStatus @default(ACTIVE)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?
+
+  @@index([serviceId])
+  @@map("package")
+}
+
+model Booking {
+  id                 String               @id @default(cuid())
+  bookingCode        String               @unique
+  customerUserId     String
+  customer           User                 @relation("CustomerBookings", fields: [customerUserId], references: [id])
+  employeeId         String
+  employee           Employee             @relation(fields: [employeeId], references: [id])
+  serviceId          String
+  service            Service              @relation(fields: [serviceId], references: [id])
+  locationId         String
+  location           Location             @relation(fields: [locationId], references: [id])
+  startTime          DateTime
+  endTime            DateTime
+  durationMinutes    Int
+  status             BookingStatus        @default(CONFIRMED)
+  paymentStatus      BookingPaymentStatus @default(PENDING)
+  priceCents         Int
+  currency           String               @default("CAD")
+  notes              String?
+  cancellationReason       String?
+  cancelledAt              DateTime?
+  stripeCheckoutSessionId  String?
+  stripePaymentIntentId    String?
+  /// True when the payment was taken against Stripe test/sandbox keys. Excluded
+  /// from analytics so test traffic on a production deploy never shows as revenue.
+  isTest                   Boolean              @default(false)
+  externalRef              String?
+  familyMemberId           String?
+  familyMember             FamilyMember?        @relation(fields: [familyMemberId], references: [id], onDelete: SetNull)
+  createdAt                DateTime             @default(now())
+  updatedAt                DateTime             @updatedAt
+  deletedAt                DateTime?
+
+  @@index([employeeId, startTime])
+  @@index([locationId, startTime])
+  @@index([customerUserId])
+  @@index([serviceId])
+  @@index([status])
+  @@index([familyMemberId])
+  @@map("booking")
+}
+
+model Subscription {
+  id                    String    @id @default(cuid())
+  plan                  String
+  referenceId           String
+  stripeCustomerId      String?
+  stripeSubscriptionId  String?
+  status                String    @default("incomplete")
+  periodStart           DateTime?
+  periodEnd             DateTime?
+  trialStart            DateTime?
+  trialEnd              DateTime?
+  cancelAtPeriodEnd     Boolean?  @default(false)
+  cancelAt              DateTime?
+  canceledAt            DateTime?
+  endedAt               DateTime?
+  seats                 Int?
+  billingInterval       String?
+  stripeScheduleId      String?
+
+  @@index([referenceId])
+  @@index([stripeCustomerId])
+  @@map("subscription")
+}
+
+/// Backing store for Better Auth's rate limiter when `rateLimit.storage` is
+/// set to "database". Required for limits to survive an API restart.
+model RateLimit {
+  id          String  @id
+  key         String?
+  count       Int?
+  lastRequest BigInt?
+
+  @@map("rate_limit")
+}
+
+/// Key/value store for admin-editable configuration. One row per settings
+/// group; `value` holds the group's validated object.
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+
+  @@map("app_setting")
+}
+
+/// Security/compliance trail. Deliberately has no foreign key to User — an
+/// audit record must outlive the account it refers to.
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  actorEmail  String?
+  actorRole   String?
+  action      String
+  targetType  String?
+  targetId    String?
+  targetLabel String?
+  summary     String
+  metadata    Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([action])
+  @@index([actorUserId])
+  @@map("audit_log")
+}
+
+model StripeWebhookEvent {
+  id          String   @id
+  type        String
+  processedAt DateTime @default(now())
+
+  @@map("stripe_webhook_event")
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  FULFILLED
+  SHIPPED
+  CANCELLED
+  REFUNDED
+}
+
+enum DiscountType {
+  PERCENT
+  FIXED
+}
+
+/// Stripe Connect onboarding state for a non-platform brand.
+enum BrandOnboardingStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  PENDING_VERIFICATION
+  COMPLETE
+  RESTRICTED
+}
+
+/// Lifecycle of the Stripe Transfer that moves a brand's share of an order out
+/// of the platform balance and into that brand's connected account.
+enum BrandTransferStatus {
+  /// Platform brand — its share already settled into the platform account.
+  NOT_APPLICABLE
+  /// Transfer is required but has not been created yet.
+  OWED
+  /// Brand has no usable connected account yet; owed manually.
+  AWAITING_ONBOARDING
+  /// Transfer created, waiting on the source charge to settle.
+  PENDING
+  PAID
+  PARTIALLY_REVERSED
+  REVERSED
+  FAILED
+}
+
+/// One of the businesses selling through the storefront. Exactly one brand is
+/// the platform (`isPlatform`) — it owns the Stripe account that customers pay,
+/// so its share never moves. Every other brand is a Connect connected account
+/// paid by Transfer after the charge succeeds.
+model Brand {
+  id               String                @id @default(cuid())
+  name             String
+  slug             String                @unique
+  tagline          String?
+  logoUrl          String?
+  displayOrder     Int                   @default(0)
+  active           Boolean               @default(true)
+  isPlatform       Boolean               @default(false)
+
+  stripeAccountId  String?               @unique
+  chargesEnabled   Boolean               @default(false)
+  payoutsEnabled   Boolean               @default(false)
+  onboardingStatus BrandOnboardingStatus @default(NOT_STARTED)
+  /// `requirements.currently_due` from Stripe, surfaced in the admin UI.
+  requirementsDue  String[]
+  stripeSyncedAt   DateTime?
+
+  products         Product[]
+  orderItems       OrderItem[]
+  orderSplits      OrderBrandSplit[]
+
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  deletedAt        DateTime?
+
+  @@index([active])
+  @@map("brand")
+}
+
+/// Per-brand money breakdown for one order. Written for every brand in the
+/// order — including the platform brand, which gets a row for reporting but no
+/// transfer. All amounts in cents; the brands' `grossCents` sum to the order
+/// total exactly.
+model OrderBrandSplit {
+  id               String              @id @default(cuid())
+  orderId          String
+  order            Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  brandId          String
+  brand            Brand               @relation(fields: [brandId], references: [id])
+
+  /// Line total for this brand before any discount.
+  subtotalCents    Int                 @default(0)
+  discountCents    Int                 @default(0)
+  shippingCents    Int                 @default(0)
+  taxCents         Int                 @default(0)
+  /// What the customer actually paid for this brand: subtotal - discount + shipping + tax.
+  grossCents       Int                 @default(0)
+  /// This brand's share of the Stripe processing fee on the whole charge.
+  stripeFeeCents   Int                 @default(0)
+  /// grossCents - stripeFeeCents. Zero for the platform brand.
+  transferCents    Int                 @default(0)
+  /// Cumulative amount reversed via refunds or disputes.
+  reversedCents    Int                 @default(0)
+
+  stripeTransferId String?
+  transferStatus   BrandTransferStatus @default(NOT_APPLICABLE)
+  transferError    String?
+  /// Bumped whenever a brand becomes owed again (e.g. a dispute was won after
+  /// its transfer had been reversed). Part of the Stripe idempotency key, so a
+  /// legitimate re-transfer is not deduplicated against the original one.
+  transferAttempt  Int                 @default(0)
+
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@unique([orderId, brandId])
+  @@index([brandId])
+  @@map("order_brand_split")
+}
+
+model ProductCategory {
+  id           String    @id @default(cuid())
+  name         String    @unique
+  slug         String    @unique
+  displayOrder Int       @default(0)
+  products     Product[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  @@map("product_category")
+}
+
+model Product {
+  id              String           @id @default(cuid())
+  name            String
+  slug            String           @unique
+  description     String?
+  ingredients     String?
+  howToUse        String?
+  status          ProductStatus    @default(DRAFT)
+  priceCents      Int
+  currency        String           @default("CAD")
+  categoryId      String?
+  category        ProductCategory? @relation(fields: [categoryId], references: [id])
+  brandId         String
+  brand           Brand            @relation(fields: [brandId], references: [id])
+  stripeProductId String?
+  stripePriceId   String?
+  concerns        String[]
+  productTypes    String[]
+  ingredientsFacet String[]
+  skinTypes       String[]
+  images          ProductImage[]
+  inventory       InventoryLevel?
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  deletedAt       DateTime?
+
+  @@index([status])
+  @@index([categoryId])
+  @@index([brandId])
+  @@map("product")
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  alt       String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+  @@map("product_image")
+}
+
+model InventoryLevel {
+  id                String  @id @default(cuid())
+  productId         String  @unique
+  product           Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity          Int     @default(0)
+  lowStockThreshold Int     @default(5)
+  allowBackorder    Boolean @default(false)
+
+  @@map("inventory_level")
+}
+
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String     @unique
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@map("cart")
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  cartId    String
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cartId, productId])
+  @@map("cart_item")
+}
+
+model Order {
+  id                      String      @id @default(cuid())
+  orderCode               String      @unique
+  userId                  String
+  user                    User        @relation(fields: [userId], references: [id])
+  status                  OrderStatus @default(PENDING)
+  currency                String      @default("CAD")
+  subtotalCents           Int         @default(0)
+  discountCents           Int         @default(0)
+  shippingCents           Int         @default(0)
+  taxCents                Int         @default(0)
+  totalCents              Int         @default(0)
+  stripeCheckoutSessionId String?     @unique
+  stripePaymentIntentId   String?
+  /// Charge behind the PaymentIntent — the `source_transaction` for brand
+  /// transfers, and the anchor for reversals on refund or dispute.
+  stripeChargeId          String?
+  /// Ties the charge and its brand transfers together in Stripe. Set on the
+  /// PaymentIntent at checkout, so transfers must reuse the same value.
+  stripeTransferGroup     String?
+  /// Stripe's processing fee on the whole charge, split across brand rows.
+  stripeFeeCents          Int         @default(0)
+  /// True when taken against Stripe test/sandbox keys. Excluded from analytics.
+  isTest                  Boolean     @default(false)
+  shippingName            String?
+  shippingLine1           String?
+  shippingLine2           String?
+  shippingCity            String?
+  shippingProvince        String?
+  shippingPostalCode      String?
+  shippingCountry         String?
+  trackingNumber          String?
+  shippedAt               DateTime?
+  fulfilledAt             DateTime?
+  items                   OrderItem[]
+  brandSplits             OrderBrandSplit[]
+  createdAt               DateTime    @default(now())
+  updatedAt               DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([stripeChargeId])
+  @@map("order")
+}
+
+model OrderItem {
+  id             String  @id @default(cuid())
+  orderId        String
+  order          Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId      String?
+  product        Product? @relation(fields: [productId], references: [id])
+  /// Denormalized at write time alongside name/price — reassigning a product to
+  /// a different brand later must not rewrite historical revenue attribution.
+  brandId        String?
+  brand          Brand?  @relation(fields: [brandId], references: [id])
+  name           String
+  slug           String
+  unitPriceCents Int
+  quantity       Int
+  imageUrl       String?
+
+  @@index([orderId])
+  @@index([brandId])
+  @@map("order_item")
+}
+
+model ShippingTier {
+  id               String   @id @default(cuid())
+  name             String
+  rateCents        Int
+  freeOverCents    Int?
+  minDeliveryDays  Int?
+  maxDeliveryDays  Int?
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("shipping_tier")
+}
+
+model Discount {
+  id                     String       @id @default(cuid())
+  code                   String       @unique
+  type                   DiscountType
+  percentOff             Int?
+  amountOffCents         Int?
+  stripeCouponId         String?
+  stripePromotionCodeId  String?
+  active                 Boolean      @default(true)
+  expiresAt              DateTime?
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+
+  @@map("discount")
+}

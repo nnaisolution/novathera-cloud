@@ -1,0 +1,39 @@
+{
+  "cli": {
+    "version": ">= 16.17.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "corepack": true,
+      "env": {
+        "EAS_FALLBACK_PACKAGE_MANAGER": "npm"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "corepack": true,
+      "env": {
+        "EAS_FALLBACK_PACKAGE_MANAGER": "npm"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "corepack": true,
+      "env": {
+        "EAS_FALLBACK_PACKAGE_MANAGER": "npm"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

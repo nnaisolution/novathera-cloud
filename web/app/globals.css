@@ -1,0 +1,140 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: #ffffff;
+  --foreground: #1a1c18;
+  --card: #fffaf0;
+  --card-foreground: #1a1c18;
+  --primary: #023a40;
+  --primary-foreground: #ffffff;
+  --secondary: #f2f2ef;
+  --secondary-foreground: #023a40;
+  --muted: #f2f2ef;
+  --muted-foreground: #222222;
+  --accent: #fffaf0;
+  --accent-foreground: #023a40;
+  --border: #e5e5e0;
+  --input: #e5e5e0;
+  --ring: #023a40;
+  --popover: #fffaf0;
+  --popover-foreground: #1a1c18;
+  --destructive: #dc2626;
+  --radius: 1rem;
+
+  --nova-teal: #023a40;
+  --nova-ink: #1a1c18;
+  --nova-cream: #f2f2ef;
+  --nova-card: #fffaf0;
+  --nova-body: #222222;
+  --nova-gold: #c4a574;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: var(--font-figtree);
+  --font-serif: var(--font-fraunces);
+  --color-nova-teal: var(--nova-teal);
+  --color-nova-gold: var(--nova-gold);
+  --color-nova-card: var(--nova-card);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-figtree), system-ui, sans-serif;
+}
+
+.font-display {
+  font-family: var(--font-fraunces), Georgia, serif;
+}
+
+@keyframes home-page-v2-text-bar-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.home-page-v2-text-bar-marquee {
+  animation: home-page-v2-text-bar-marquee 50s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-page-v2-text-bar-marquee {
+    animation: none;
+  }
+}
+
+@keyframes home-page-v2-instagram-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.home-page-v2-instagram-marquee {
+  animation: home-page-v2-instagram-marquee 40s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-page-v2-instagram-marquee {
+    animation: none;
+  }
+}
+
+/* Sonner — solid surfaces (avoids transparent toasts over maps/images) */
+[data-sonner-toaster] {
+  --normal-bg: var(--popover);
+  --normal-text: var(--popover-foreground);
+  --normal-border: var(--border);
+  --border-radius: var(--radius);
+}
+
+[data-sonner-toast] {
+  background: var(--popover) !important;
+  color: var(--popover-foreground) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow:
+    0 10px 15px -3px rgb(0 0 0 / 0.1),
+    0 4px 6px -4px rgb(0 0 0 / 0.1) !important;
+}
+
+[data-sonner-toast] [data-description] {
+  color: var(--nova-body) !important;
+}
+
+[data-sonner-toast] [data-title] {
+  color: var(--nova-teal) !important;
+  font-weight: 500;
+}
+
+[data-sonner-toast] [data-close-button] {
+  background: var(--secondary) !important;
+  border-color: var(--border) !important;
+  color: var(--nova-body) !important;
+}

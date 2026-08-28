@@ -1,0 +1,28 @@
+{
+  "name": "novathera",
+  "private": true,
+  "description": "Nova Thera Mobile Health Companion",
+  "packageManager": "npm@11.5.1",
+  "workspaces": [
+    "mobile",
+    "backend",
+    "packages/shared"
+  ],
+  "overrides": {
+    "react-native-worklets": "0.10.1",
+    "react-native-reanimated": "4.5.1"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2"
+  },
+  "scripts": {
+    "mobile": "npm run start -w mobile",
+    "backend": "npm run dev -w backend",
+    "db:generate": "npm run db:generate -w backend",
+    "typecheck": "npm run typecheck -w packages/shared && npm run typecheck -w backend --if-present"
+  },
+  "dependencies": {
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  }
+}

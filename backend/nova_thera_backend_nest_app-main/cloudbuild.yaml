@@ -1,0 +1,77 @@
+# Auto-deploy on push to main.
+#
+# Order matters: migrations run BEFORE the new revision is deployed. If the
+# container rolls out first and the schema it expects is not there yet, the API
+# crash-loops at boot (SettingsService reads app_setting before the server
+# listens, so Cloud Run never sees a healthy port).
+
+steps:
+  # 1. Build
+  - id: build
+    name: 'gcr.io/cloud-builders/docker'
+    env: ['DOCKER_BUILDKIT=1']
+    args:
+      - build
+      - -t
+      - '${_IMAGE}:$SHORT_SHA'
+      - -t
+      - '${_IMAGE}:latest'
+      - .
+
+  # 2. Push both tags
+  - id: push
+    name: 'gcr.io/cloud-builders/docker'
+    args: ['push', '--all-tags', '${_IMAGE}']
+
+  # 3. Migrate. Cloud Build has no sidecars, so the proxy runs in-step on
+  #    127.0.0.1:5432 — hence the TCP-form URL rather than the unix socket the
+  #    Cloud Run service uses.
+  - id: migrate
+    name: 'node:22-alpine'
+    entrypoint: sh
+    secretEnv: ['DATABASE_URL']
+    args:
+      - -c
+      - |
+        set -e
+        apk add --no-cache curl >/dev/null
+        curl -sLo /usr/local/bin/cloud-sql-proxy \
+          https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.1/cloud-sql-proxy.linux.amd64
+        chmod +x /usr/local/bin/cloud-sql-proxy
+        cloud-sql-proxy --port 5432 "${_CLOUDSQL_INSTANCE}" &
+        for i in $(seq 1 30); do
+          nc -z 127.0.0.1 5432 && break
+          sleep 1
+        done
+        corepack enable
+        pnpm install --frozen-lockfile
+        pnpm prisma migrate deploy
+
+  # 4. Deploy. Image only — env vars and secrets stay as configured on the
+  #    service so a push cannot silently drop them.
+  - id: deploy
+    name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - nova-thera-api
+      - --image=${_IMAGE}:$SHORT_SHA
+      - --region=${_REGION}
+      - --quiet
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/nova-thera/secrets/database-url-migrate/versions/latest
+      env: DATABASE_URL
+
+substitutions:
+  _REGION: northamerica-northeast2
+  _IMAGE: northamerica-northeast2-docker.pkg.dev/nova-thera/apps/api
+  _CLOUDSQL_INSTANCE: nova-thera:northamerica-northeast2:novathera-db
+
+options:
+  machineType: E2_HIGHCPU_8
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: 1800s

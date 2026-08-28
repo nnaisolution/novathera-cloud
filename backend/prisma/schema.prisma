@@ -1,0 +1,254 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ObservationType {
+  WEIGHT
+  BLOOD_PRESSURE
+  BLOOD_GLUCOSE
+  HEART_RATE
+  SPO2
+  BODY_TEMPERATURE
+  PAIN
+  HEIGHT
+  RESPIRATORY_RATE
+  STEPS
+  OTHER
+}
+
+enum ObservationSource {
+  MANUAL
+  APPLE_HEALTHKIT
+  GOOGLE_HEALTH_CONNECT
+}
+
+enum ObservationStatus {
+  PRELIMINARY
+  FINAL
+  ENTERED_IN_ERROR
+}
+
+enum ConsentPurpose {
+  TREATMENT
+  CARE_COORDINATION
+  ANALYTICS
+  RESEARCH
+  THIRD_PARTY_SHARING
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+enum MembershipStatus {
+  INACTIVE
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+enum PushPlatform {
+  APNS
+  FCM
+}
+
+model Patient {
+  id                   String    @id @default(cuid())
+  phoneE164Encrypted   String
+  phoneLookupHash      String    @unique
+  displayName          String?
+  dateOfBirth          DateTime? @db.Date
+  sexAtBirth           String?
+  locale               String    @default("en")
+  timezone             String    @default("UTC")
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  deletedAt            DateTime?
+
+  sessions             Session[]
+  consents             Consent[]
+  observations         HealthObservation[]
+  appointments         Appointment[]
+  memberships          Membership[]
+  enrollments          ProgramEnrollment[]
+  deviceTokens         DeviceToken[]
+  auditLogs            AuditLog[]
+  crmLinks             CrmLink[]
+}
+
+model Session {
+  id               String    @id @default(cuid())
+  patientId        String
+  patient          Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  refreshTokenHash String    @unique
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  lastUsedAt       DateTime  @default(now())
+  deviceLabel      String?
+
+  @@index([patientId])
+}
+
+model OtpChallenge {
+  id                   String    @id @default(cuid())
+  phoneLookupHash      String
+  phoneE164Encrypted   String
+  codeHash             String
+  expiresAt            DateTime
+  attempts             Int       @default(0)
+  consumedAt           DateTime?
+  createdAt            DateTime  @default(now())
+  ipHash               String?
+
+  @@index([phoneLookupHash, createdAt])
+}
+
+model Consent {
+  id             String         @id @default(cuid())
+  patientId      String
+  patient        Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  purpose        ConsentPurpose
+  dataCategories String[]
+  policyVersion  String
+  granted        Boolean        @default(false)
+  grantedAt      DateTime?
+  revokedAt      DateTime?
+  source         String         @default("mobile")
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  observations   HealthObservation[]
+
+  @@index([patientId, purpose])
+}
+
+model HealthObservation {
+  id                  String              @id @default(cuid())
+  patientId           String
+  patient             Patient             @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  consentId           String?
+  consent             Consent?            @relation(fields: [consentId], references: [id])
+  type                ObservationType
+  loincCode           String?
+  fhirCategory        String              @default("vital-signs")
+  valueQuantity       Decimal?            @db.Decimal(14, 4)
+  valueUnit           String?
+  valueNormalized     Decimal?            @db.Decimal(14, 4)
+  unitNormalized      String?
+  components          Json?
+  effectiveAt         DateTime
+  issuedAt            DateTime            @default(now())
+  status              ObservationStatus    @default(FINAL)
+  source              ObservationSource
+  sourceRecordId      String?
+  contentHash         String
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  @@unique([patientId, contentHash])
+  @@index([patientId, type, effectiveAt])
+  @@index([patientId, effectiveAt])
+}
+
+model TreatmentProgram {
+  id          String              @id @default(cuid())
+  slug        String              @unique
+  title       String
+  description String?
+  isAftercare Boolean             @default(false)
+  active      Boolean             @default(true)
+  /// Seeded checklist / instructions. There is no tasks API; the app renders this read-only.
+  instructions Json?
+  enrollments ProgramEnrollment[]
+}
+
+model ProgramEnrollment {
+  id        String           @id @default(cuid())
+  patientId String
+  patient   Patient          @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  programId String
+  program   TreatmentProgram @relation(fields: [programId], references: [id])
+  status    String           @default("ACTIVE")
+  startedAt DateTime         @default(now())
+  endedAt   DateTime?
+
+  @@unique([patientId, programId])
+}
+
+model Appointment {
+  id               String            @id @default(cuid())
+  patientId        String
+  patient          Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  calComBookingUid String?           @unique
+  title            String
+  status           AppointmentStatus @default(SCHEDULED)
+  startsAt         DateTime
+  endsAt           DateTime
+  locationType     String            @default("telehealth")
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([patientId, startsAt])
+}
+
+model Membership {
+  id                   String           @id @default(cuid())
+  patientId            String
+  patient              Patient          @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  polarCustomerId      String?
+  polarSubscriptionId  String?          @unique
+  planName             String?
+  status               MembershipStatus @default(INACTIVE)
+  currentPeriodEnd     DateTime?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  @@index([patientId, status])
+}
+
+model DeviceToken {
+  id          String       @id @default(cuid())
+  patientId   String
+  patient     Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  platform    PushPlatform
+  tokenHash   String       @unique
+  lastSeenAt  DateTime     @default(now())
+  revokedAt   DateTime?
+
+  @@index([patientId])
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  patientId      String?
+  patient        Patient? @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  action         String
+  resourceType   String
+  resourceId     String?
+  createdAt      DateTime @default(now())
+  ipHash         String?
+
+  @@index([patientId, createdAt])
+}
+
+model CrmLink {
+  id         String   @id @default(cuid())
+  patientId  String
+  patient    Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  provider   String
+  externalId String
+  createdAt  DateTime @default(now())
+
+  @@unique([provider, externalId])
+  @@index([patientId])
+}

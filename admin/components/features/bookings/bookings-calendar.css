@@ -1,0 +1,94 @@
+@import "react-big-calendar/lib/css/react-big-calendar.css";
+
+.bookings-calendar .rbc-calendar {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  min-height: 640px;
+}
+
+.bookings-calendar .rbc-toolbar {
+  margin-bottom: 1rem;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.bookings-calendar .rbc-toolbar button {
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--foreground);
+  border-radius: calc(var(--radius) - 2px);
+  padding: 0.35rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.bookings-calendar .rbc-toolbar button:hover,
+.bookings-calendar .rbc-toolbar button:focus {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.bookings-calendar .rbc-toolbar button.rbc-active {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+}
+
+.bookings-calendar .rbc-header {
+  padding: 0.5rem 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  border-color: var(--border);
+}
+
+.bookings-calendar .rbc-month-view,
+.bookings-calendar .rbc-time-view,
+.bookings-calendar .rbc-agenda-view {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--card);
+}
+
+.bookings-calendar .rbc-day-bg + .rbc-day-bg,
+.bookings-calendar .rbc-month-row + .rbc-month-row,
+.bookings-calendar .rbc-time-content > * + * > *,
+.bookings-calendar .rbc-timeslot-group,
+.bookings-calendar .rbc-time-header-content,
+.bookings-calendar .rbc-time-content {
+  border-color: var(--border);
+}
+
+.bookings-calendar .rbc-off-range-bg {
+  background: var(--muted);
+}
+
+.bookings-calendar .rbc-today {
+  background: color-mix(in oklab, var(--primary) 8%, transparent);
+}
+
+.bookings-calendar .rbc-event {
+  border: none;
+  border-radius: calc(var(--radius) - 4px);
+  padding: 0;
+}
+
+.bookings-calendar .rbc-event:focus {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+.bookings-calendar .rbc-show-more {
+  color: var(--primary);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.bookings-calendar .rbc-agenda-table {
+  border-color: var(--border);
+}
+
+.bookings-calendar .rbc-agenda-date-cell,
+.bookings-calendar .rbc-agenda-time-cell {
+  color: var(--muted-foreground);
+}

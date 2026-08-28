@@ -1,0 +1,5 @@
+export const PENDING_VERIFICATION_EMAIL_KEY = 'pendingVerificationEmail'
+
+export function getAppUrl(): string {
+  return process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001'
+}
