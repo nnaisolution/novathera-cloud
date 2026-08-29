@@ -1,5 +1,5 @@
 [build]
-  command = "npx --yes pnpm@9.15.9 install && npx --yes pnpm@9.15.9 exec next build --webpack"
+  command = "npx --yes pnpm@9.15.9 install --no-frozen-lockfile && npx --yes pnpm@9.15.9 exec next build --webpack"
 
 [build.environment]
   NODE_VERSION = "22"
