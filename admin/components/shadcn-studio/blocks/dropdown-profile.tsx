@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { authClient, useSession } from '@/lib/auth-client'
+import { writeSessionToken } from '@/lib/auth/session-token'
 import { IconSettings, IconLogout } from '@tabler/icons-react'
 
 type Props = {
@@ -40,10 +41,12 @@ const ProfileDropdown = ({ trigger, defaultOpen, align = 'end' }: Props) => {
     await authClient.signOut({
       fetchOptions: {
         onSuccess: () => {
+          writeSessionToken(null)
           router.push('/login')
         },
       },
     })
+    writeSessionToken(null)
   }
 
   return (

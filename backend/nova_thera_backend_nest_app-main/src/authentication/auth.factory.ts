@@ -45,6 +45,39 @@ export type AuthRuntimeOptions = {
   onAuditEvent?: (event: AuthAuditEvent) => void | Promise<void>;
 };
 
+function isLoopbackHostname(baseUrl: string): boolean {
+  try {
+    const { hostname } = new URL(baseUrl);
+    return (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '[::1]' ||
+      hostname === '::1'
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Production hosts the API, admin, and storefront on different sites
+ * (Render vs Netlify). Better Auth defaults to SameSite=Lax, which browsers
+ * will not store or send on cross-site XHR — login looks successful, then
+ * getSession is empty. SameSite=None; Secure is required for that split.
+ * Localhost stays Lax so http://localhost:3001 → :4000 still works.
+ */
+function crossSiteCookieAttributes(authConfig: AuthConfigService) {
+  if (authConfig.isSecureContext && !isLoopbackHostname(authConfig.baseUrl)) {
+    return {
+      defaultCookieAttributes: {
+        sameSite: 'none' as const,
+        secure: true,
+      },
+    };
+  }
+  return {};
+}
+
 function buildSocialProviders(authConfig: AuthConfigService) {
   const socialProviders: NonNullable<
     Parameters<typeof betterAuth>[0]['socialProviders']
@@ -307,14 +340,9 @@ export function createAuth(
     },
     advanced: {
       trustedProxyHeaders: authConfig.trustedProxyHeaders,
-      // The API, storefront and admin app are separate origins in production.
-      // Without this the session cookie defaults to SameSite=Lax and is simply
-      // not sent on cross-site XHR, so every deployed login appears to succeed
-      // and then immediately behaves as signed out.
-      //
-      // Sharing a parent domain (api./admin./www.novathera.ca) keeps the cookie
-      // first-party, which SameSite=Lax allows and which survives browsers
-      // phasing out third-party cookies.
+      // Optional first-party cookie when every app shares a parent domain
+      // (api./admin./www.novathera.ca). Leave AUTH_COOKIE_DOMAIN unset for the
+      // current Netlify + Render split; defaultCookieAttributes covers that.
       ...(authConfig.cookieDomain
         ? {
             crossSubDomainCookies: {
@@ -324,6 +352,7 @@ export function createAuth(
           }
         : {}),
       useSecureCookies: authConfig.isSecureContext,
+      ...crossSiteCookieAttributes(authConfig),
       ...(ipAddressHeaders.length > 0
         ? {
             ipAddress: {

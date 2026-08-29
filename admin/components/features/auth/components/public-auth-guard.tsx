@@ -18,14 +18,8 @@ export function PublicAuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [isPending, router, session]);
 
-  if (isPending) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center">
-        <p className="text-muted-foreground text-sm">Loading...</p>
-      </div>
-    );
-  }
-
+  // Show the form immediately. Waiting on getSession blocks the login page
+  // for a full Render cold start (often 1–2 minutes) with no way to retry.
   if (session?.user.emailVerified) {
     return null;
   }

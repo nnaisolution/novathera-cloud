@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { authClient } from '@/lib/auth-client'
+import { writeSessionToken } from '@/lib/auth/session-token'
 import { getAppUrl, PENDING_VERIFICATION_EMAIL_KEY } from '@/lib/auth/constants'
 import type { LoginFormValues } from '../schemas/login.schema'
 
@@ -25,6 +26,10 @@ export function useLogin() {
         callbackURL: `${getAppUrl()}/`,
       })
       signInError = result.error
+      const token = result.data?.token
+      if (typeof token === 'string' && token) {
+        writeSessionToken(token)
+      }
     } catch {
       setIsPending(false)
       setError(

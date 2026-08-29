@@ -1,0 +1,14 @@
+# Render free web services sleep. A ping every 10 minutes keeps Nest from a
+# 1–2 minute cold start on the next admin login. Harmless on a paid always-on plan.
+name: Keep Nest warm
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Ping Nest auth health
+        run: curl -fsS --max-time 60 "https://novathera-nest.onrender.com/api/auth/ok"
